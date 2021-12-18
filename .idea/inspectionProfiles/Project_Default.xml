@@ -1,0 +1,35 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E401" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N801" />
+          <option value="N806" />
+          <option value="N802" />
+          <option value="N803" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="rock_paper_scissors.name" />
+          <option value="Auto_logger_librus.librus.settings" />
+          <option value="selenium.webdriver.chrome.webdriver.WebDriver.find_lement_by_xpath" />
+          <option value="str.value" />
+          <option value="PyQt5.QtWidgets.triggered.connect" />
+          <option value="main.mainMenu.stateChoose" />
+          <option value="list.__sub__" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
