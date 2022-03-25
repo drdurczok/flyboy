@@ -1,23 +1,25 @@
 from ursina import *
 from unittest.mock import Mock
-import random, time
+import random, datetime
 
 app = Ursina()
 a = Audio('data/sfx/Flappy Bird Theme Song.mp3', loop=True, autoplay=True)
 
-pipeSpawnTimer = 0
-pipeCounter = 0
+obstacleSpawnTimer = 0
+obstacleCounter = 0
+timestamp = datetime.datetime.now()
+delay = 4
 
 states = ['mainMenu', 'gamemodeSelection', 'playerSelection', 'race', 'infinite']
 currentState = states[4]
 
-horizontalSpeed = .3
-verticalSpeed = .3
+horizontalSpeed = 6
+verticalSpeed = 10
 camera.orthographic = True
-window.fullscreen = True
+# window.fullscreen = True
 window.cog_button.enabled = False
 window.exit_button.enabled = False
-window.fps_counter.enabled = True
+window.fps_counter.enabled = False
 
 # drawing entities and buttons to the screen
 player1 = Entity(model='quad',
@@ -26,56 +28,54 @@ player1 = Entity(model='quad',
                  scale=(1, 1),
                  position=(-.1, 0))
 
-finish = Entity(model='quad',
-                collider='box',
-                color=color.black,
-                scale=(1, 10),
-                position=(player1.x + 30, 0))
-finish.enabled = False
-
-
-# responsible for drawing pipes
-def drawPipes():
-    global player1, pipeCounter, pipeSpawnTimer
-
-    # checkFinMock = Mock(side_effect=drawPipes)
-
-    pipeDefiner = Entity(position=(player1.x + 30, random.randint(-15, 15)))
-    pipeDown = Entity(model='quad',
+obstacleDefiner = Entity(position=(player1.x + 30, random.randint(-15, 15)))
+obstacleDown = Entity(model='quad',
                       color=color.green,
                       scale=(8, 40),
                       y=-25,
                       collider='box',
-                      parent=pipeDefiner)
-    pipeUp = Entity(model='quad',
+                      parent=obstacleDefiner)
+obstacleUp = Entity(model='quad',
                     color=color.green,
                     scale=(8, 40),
                     y=25,
                     collider='box',
-                    parent=pipeDefiner)
-    pipeDefiner.enabled = False
+                    parent=obstacleDefiner)
 
-    if pipeSpawnTimer == 100:
-        print("Drawn a pipe")
-        pipeDefiner.enabled = True
+finish = Entity(model='quad',
+                collider='box',
+                color=color.black,
+                scale=(1, 100),
+                position=(player1.x + 30, 0),
+                enabled=False)
 
-        pipeSpawnTimer = 0
-    pipeSpawnTimer += 1
+Score = Text(position=(0, .4),
+             scale=(2, 2))
 
-    # if pipeCounter == 10:
-    #     checkFinMock()
+Ending = Text(text="Congratulations, you've made it to the end",
+              scale=(3, 3),
+              enabled=False)
 
-    # if checkFinMock.called:
-    #     drawFinish()
+Collision = Text(text=f"You Crashed, restarting",
+                 scale=(3, 3),
+                 enabled=False,
+                 position=(-.4, .2))
 
-    # if player1.intersects(pipeDown or pipeUp).hit:
-    #     player1.enabled = False
+
+# responsible for drawing pipes
+def drawObstacles():
+    global player1, obstacleCounter, obstacleSpawnTimer
+
+    obstacleDefiner.position = (player1.x + 30, random.randint(-15, 15))
+
+    obstacleCounter += 1
+    print(f"{obstacleCounter}")
 
 
-def drawFinish():
-    global finish
-
-    finish.enabled = True
+# def drawFinish():
+#     global finish
+#
+#     finish.enabled = True
 
 
 # responsible for moving and changing player1's speed
@@ -86,70 +86,66 @@ def Move():
     camera.x = player1.x
 
     if held_keys['w'] and held_keys['s']:
-        horizontalSpeed = .6
+        horizontalSpeed = 9 * time.dt
     if not held_keys['w'] and held_keys['s']:
-        horizontalSpeed = .3
-        player1.y -= verticalSpeed
+        horizontalSpeed = 6 * time.dt
+        player1.y -= verticalSpeed * time.dt
     if held_keys['w'] and not held_keys['s']:
-        horizontalSpeed = .3
-        player1.y += verticalSpeed
+        horizontalSpeed = 6 * time.dt
+        player1.y += verticalSpeed * time.dt
     if not held_keys['w'] and not held_keys['s']:
-        horizontalSpeed = .3
+        horizontalSpeed = 6 * time.dt
 
     if held_keys['1']:
         quit()
 
-    if horizontalSpeed == .3:
+    if horizontalSpeed == 6:
         player1.color = color.white
     else:
         player1.color = color.magenta
 
 
-def Play():
-    global currentState, states
-
-    currentState = states[4]
-
-    return currentState
-
-
-def MainMenu():
-    global currentState, states
-
-    playBTN = Button(text='Play',
-                     color=color.blue,
-                     scale=(.2, .1))
-
-    playBTN.on_click = Play()
-
-
-drawPipes()
+drawObstacles()
 
 
 # called every frame
 def update():
-    global currentState, states, pipeSpawnTimer
+    global currentState, states, obstacleSpawnTimer, obstacleCounter, timestamp, obstacleUp, obstacleDown, delay, finish
 
-    if currentState == states[4]:
-        Move()
-        drawPipes()
+    Move()
+    Score.text = f"score: {int(player1.x)}"
 
-        if player1.intersects(finish).hit:
-            quit()
+    if player1.x >= obstacleDefiner.x:
+        drawObstacles()
+
+    if obstacleCounter == 10:
+        finish.enabled = True
+
+    if finish.enabled:
+        print("Whats wrong with your code?!11?!?!1")
+
+    # if player1.intersects(finish).hit:
+    #     Ending.enabled = True
 
     if held_keys['m']:
         a.volume = 0
     if held_keys['n']:
         a.volume = 2
 
-    if player1.intersects().hit:
+    if player1.intersects(obstacleUp).hit or player1.intersects(obstacleDown).hit:
         player1.enabled = False
+        Collision.enabled = True
+
+    if (datetime.datetime.now() - timestamp).seconds >= delay:
+        Collision.enabled = False
+        timestamp = datetime.datetime.now()
 
     if not player1.enabled:
         player1.position = (0, 0)
         player1.enabled = True
-
-    time.sleep(0.008333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333)
+        drawObstacles()
+        obstacleCounter = 0
+        finish.enabled = False
 
 
 app.run()
