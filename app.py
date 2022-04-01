@@ -13,13 +13,49 @@ delay = 4
 states = ['mainMenu', 'gamemodeSelection', 'playerSelection', 'race', 'infinite']
 currentState = states[4]
 
-horizontalSpeed = 6
-verticalSpeed = 10
 camera.orthographic = True
 # window.fullscreen = True
 window.cog_button.enabled = False
 window.exit_button.enabled = False
 window.fps_counter.enabled = False
+
+
+class Player(Entity):
+    def __init__(self):
+        super().__init__()
+        self.model = "quad"
+        self.color = color.white
+        self.scale = 1
+        self.position = (1, 1)
+        self.horizontalSpeed = 6
+        self.verticalSpeed = 10
+        self.loSpeed = 6
+        self.hiSpeed = 12
+
+    def setSpeed(self, value):
+        self.horizontalSpeed = value
+
+    def getSpeed(self):
+        return self.horizontalSpeed
+
+    def input(self, key):
+        if key == '1':
+            quit()
+
+    def update(self):
+        self.y += held_keys['w'] * time.dt * self.verticalSpeed
+        self.y -= held_keys['s'] * time.dt * self.verticalSpeed
+
+        if held_keys['w'] and held_keys['s']:
+            if self.horizontalSpeed != self.hiSpeed:
+                self.setSpeed(self.hiSpeed)
+                self.color = color.magenta
+        else:
+            if self.horizontalSpeed != self.loSpeed:
+                self.setSpeed(self.loSpeed)
+
+        self.x += time.dt * self.horizontalSpeed
+
 
 # drawing entities and buttons to the screen
 player1 = Entity(model='quad',
@@ -79,30 +115,30 @@ def drawObstacles():
 
 
 # responsible for moving and changing player1's speed
-def Move():
-    global horizontalSpeed, verticalSpeed
+# def Move():
+#     global horizontalSpeed, verticalSpeed
+#
+#     player1.x += horizontalSpeed
+#     camera.x = player1.x
+#
+#     if held_keys['w'] and held_keys['s']:
+#         horizontalSpeed = 9 * time.dt
+#     if not held_keys['w'] and held_keys['s']:
+#         horizontalSpeed = 6 * time.dt
+#         player1.y -= verticalSpeed * time.dt
+#     if held_keys['w'] and not held_keys['s']:
+#         horizontalSpeed = 6 * time.dt
+#         player1.y += verticalSpeed * time.dt
+#     if not held_keys['w'] and not held_keys['s']:
+#         horizontalSpeed = 6 * time.dt
 
-    player1.x += horizontalSpeed
-    camera.x = player1.x
-
-    if held_keys['w'] and held_keys['s']:
-        horizontalSpeed = 9 * time.dt
-    if not held_keys['w'] and held_keys['s']:
-        horizontalSpeed = 6 * time.dt
-        player1.y -= verticalSpeed * time.dt
-    if held_keys['w'] and not held_keys['s']:
-        horizontalSpeed = 6 * time.dt
-        player1.y += verticalSpeed * time.dt
-    if not held_keys['w'] and not held_keys['s']:
-        horizontalSpeed = 6 * time.dt
-
-    if held_keys['1']:
-        quit()
-
-    if horizontalSpeed == 6:
-        player1.color = color.white
-    else:
-        player1.color = color.magenta
+    # if held_keys['1']:
+    #     quit()
+    #
+    # if horizontalSpeed == 6:
+    #     player1.color = color.white
+    # else:
+    #     player1.color = color.magenta
 
 
 drawObstacles()
@@ -112,8 +148,10 @@ drawObstacles()
 def update():
     global currentState, states, obstacleSpawnTimer, obstacleCounter, timestamp, obstacleUp, obstacleDown, delay, finish
 
-    Move()
+    # Move()
     Score.text = f"score: {int(player1.x)}"
+
+    camera.x = flappy.x
 
     if player1.x >= obstacleDefiner.x:
         drawObstacles()
@@ -136,10 +174,6 @@ def update():
         player1.enabled = False
         Collision.enabled = True
 
-    if (datetime.datetime.now() - timestamp).seconds >= delay:
-        Collision.enabled = False
-        timestamp = datetime.datetime.now()
-
     if not player1.enabled:
         player1.position = (0, 0)
         player1.enabled = True
@@ -147,5 +181,6 @@ def update():
         obstacleCounter = 0
         finish.enabled = False
 
+flappy = Player()
 
 app.run()
