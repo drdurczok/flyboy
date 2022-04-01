@@ -153,7 +153,7 @@ def update():
 
     camera.x = flappy.x
 
-    if player1.x >= obstacleDefiner.x:
+    if flappy.x >= obstacleDefiner.x:
         drawObstacles()
 
     if obstacleCounter == 10:
