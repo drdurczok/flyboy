@@ -1,14 +1,10 @@
 from ursina import *
-from unittest.mock import Mock
-import random, datetime
+import random
 
 app = Ursina()
 a = Audio('data/sfx/Flappy Bird Theme Song.mp3', loop=True, autoplay=True)
 
-obstacleSpawnTimer = 0
 obstacleCounter = 0
-timestamp = datetime.datetime.now()
-delay = 4
 
 states = ['mainMenu', 'gamemodeSelection', 'playerSelection', 'race', 'infinite']
 currentState = states[4]
@@ -24,6 +20,7 @@ class Player(Entity):
     def __init__(self):
         super().__init__()
         self.model = "quad"
+        self.collider = "box"
         self.color = color.white
         self.scale = 1
         self.position = (1, 1)
@@ -31,6 +28,9 @@ class Player(Entity):
         self.verticalSpeed = 10
         self.loSpeed = 6
         self.hiSpeed = 12
+        self.loVol = 0
+        self.hiVol = 2
+        self.muted = False
 
     def setSpeed(self, value):
         self.horizontalSpeed = value
@@ -38,11 +38,25 @@ class Player(Entity):
     def getSpeed(self):
         return self.horizontalSpeed
 
+    def mute(self, value):
+        self.muted = value
+
+    def getVolState(self):
+        return self.muted
+
     def input(self, key):
         if key == '1':
             quit()
 
+        if key == 'm':
+            if not self.muted:
+                self.mute(self.hiVol)
+            if self.muted:
+                self.mute(self.loVol)
+
     def update(self):
+        camera.x = self.x
+
         self.y += held_keys['w'] * time.dt * self.verticalSpeed
         self.y -= held_keys['s'] * time.dt * self.verticalSpeed
 
@@ -53,43 +67,65 @@ class Player(Entity):
         else:
             if self.horizontalSpeed != self.loSpeed:
                 self.setSpeed(self.loSpeed)
+                self.color = color.white
+
+        if self.intersects(pipes.obstacleUp).hit or self.intersects(pipes.obstacleDown).hit:
+            self.position = (0, 0)
+            pipes.position = (self.x + 30, random.randint(-15, 15))
+
+        if not self.muted:
+            a.volume = 2
+        if self.muted:
+            a.volume = 0
 
         self.x += time.dt * self.horizontalSpeed
 
 
-# drawing entities and buttons to the screen
-player1 = Entity(model='quad',
-                 collider='box',
-                 color=color.white,
-                 scale=(1, 1),
-                 position=(-.1, 0))
+class Pipes(Entity):
+    def __init__(self):
+        super().__init__()
+        self.position = (flappy.x + 30, random.randint(-15, 15))
+        self.obstacleDown = Entity(model='quad', color=color.green, scale=(8, 40), y=-25, collider='box', parent=self)
+        self.obstacleUp = Entity(model='quad', color=color.green, scale=(8, 40), y=25, collider='box', parent=self)
 
-obstacleDefiner = Entity(position=(player1.x + 30, random.randint(-15, 15)))
-obstacleDown = Entity(model='quad',
-                      color=color.green,
-                      scale=(8, 40),
-                      y=-25,
-                      collider='box',
-                      parent=obstacleDefiner)
-obstacleUp = Entity(model='quad',
-                    color=color.green,
-                    scale=(8, 40),
-                    y=25,
-                    collider='box',
-                    parent=obstacleDefiner)
+    def input(self, key):
+        pass
 
-finish = Entity(model='quad',
-                collider='box',
-                color=color.black,
-                scale=(1, 100),
-                position=(player1.x + 30, 0),
-                enabled=False)
+    def update(self):
+        global obstacleCounter
+
+        self.always_on_top = True
+
+        if flappy.x >= self.x:
+            self.position = (flappy.x + 30, random.randint(-15, 15))
+            obstacleCounter += 1
+
+
+class Finish(Entity):
+    def __init__(self):
+        super().__init__()
+        self.model = 'quad'
+        self.collider = 'box'
+        self.color = color.black
+        self.scale = (3, 100)
+        self.position = (flappy.x + 30, 0)
+        self.enabled = False
+
+    def update(self):
+        if self.intersects(flappy).hit:
+            Ending.enabled = True
+
+
+flappy = Player()
+pipes = Pipes()
+finish = Finish()
 
 Score = Text(position=(0, .4),
              scale=(2, 2))
 
 Ending = Text(text="Congratulations, you've made it to the end",
-              scale=(3, 3),
+              scale=(2, 2),
+              position=(-.4, 0),
               enabled=False)
 
 Collision = Text(text=f"You Crashed, restarting",
@@ -98,89 +134,15 @@ Collision = Text(text=f"You Crashed, restarting",
                  position=(-.4, .2))
 
 
-# responsible for drawing pipes
-def drawObstacles():
-    global player1, obstacleCounter, obstacleSpawnTimer
-
-    obstacleDefiner.position = (player1.x + 30, random.randint(-15, 15))
-
-    obstacleCounter += 1
-    print(f"{obstacleCounter}")
-
-
-# def drawFinish():
-#     global finish
-#
-#     finish.enabled = True
-
-
-# responsible for moving and changing player1's speed
-# def Move():
-#     global horizontalSpeed, verticalSpeed
-#
-#     player1.x += horizontalSpeed
-#     camera.x = player1.x
-#
-#     if held_keys['w'] and held_keys['s']:
-#         horizontalSpeed = 9 * time.dt
-#     if not held_keys['w'] and held_keys['s']:
-#         horizontalSpeed = 6 * time.dt
-#         player1.y -= verticalSpeed * time.dt
-#     if held_keys['w'] and not held_keys['s']:
-#         horizontalSpeed = 6 * time.dt
-#         player1.y += verticalSpeed * time.dt
-#     if not held_keys['w'] and not held_keys['s']:
-#         horizontalSpeed = 6 * time.dt
-
-    # if held_keys['1']:
-    #     quit()
-    #
-    # if horizontalSpeed == 6:
-    #     player1.color = color.white
-    # else:
-    #     player1.color = color.magenta
-
-
-drawObstacles()
-
-
 # called every frame
 def update():
-    global currentState, states, obstacleSpawnTimer, obstacleCounter, timestamp, obstacleUp, obstacleDown, delay, finish
+    global currentState, states, obstacleCounter
 
-    # Move()
-    Score.text = f"score: {int(player1.x)}"
+    Score.text = f"score: {int(flappy.x)}"
 
-    camera.x = flappy.x
-
-    if flappy.x >= obstacleDefiner.x:
-        drawObstacles()
-
-    if obstacleCounter == 10:
+    if obstacleCounter == 2:
         finish.enabled = True
+        finish.x = flappy.x + 30
 
-    if finish.enabled:
-        print("Whats wrong with your code?!11?!?!1")
-
-    # if player1.intersects(finish).hit:
-    #     Ending.enabled = True
-
-    if held_keys['m']:
-        a.volume = 0
-    if held_keys['n']:
-        a.volume = 2
-
-    if player1.intersects(obstacleUp).hit or player1.intersects(obstacleDown).hit:
-        player1.enabled = False
-        Collision.enabled = True
-
-    if not player1.enabled:
-        player1.position = (0, 0)
-        player1.enabled = True
-        drawObstacles()
-        obstacleCounter = 0
-        finish.enabled = False
-
-flappy = Player()
 
 app.run()
