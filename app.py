@@ -1,4 +1,5 @@
 from ursina import *
+from gpiozero import Button
 import datetime
 
 app = Ursina()
@@ -10,6 +11,8 @@ a = Audio('data/sfx/Flappy Bird Theme Song.mp3', loop=True, autoplay=True)
 obstacleCounter = 0
 obstacleCap = 2
 obstacleReset = obstacleCap + 3
+
+finishSpawned = False
 
 textDelDelay = 6
 camera.orthographic = True
@@ -43,6 +46,8 @@ class Player(Entity):
         self.inMenu = "menu"
         self.flag = self.inMenu
         self.timestamp = datetime.datetime.now()
+        self.bUp = Button(2) # gpio pin 3
+        self.bDown = Button(3) # gpio pin 5
 
     def setSpeed(self, value):
         self.horizontalSpeed = value
@@ -65,7 +70,7 @@ class Player(Entity):
             self.position = (0, 0)
             pipes.position = (self.x + 30, random.randint(-15, 15))
         if reason == "end":
-            Ending.enabled = True
+            pass
 
     def input(self, key):
         pass
@@ -77,17 +82,20 @@ class Player(Entity):
                 self.mute(self.loVol)
 
     def update(self):
-
         camera.x = self.x
         background.x = self.x
-        print('player')
 
         Score.text = f"score: {int(self.x)}"
 
         self.y += held_keys['w'] * time.dt * self.verticalSpeed
         self.y -= held_keys['s'] * time.dt * self.verticalSpeed
 
-        if held_keys['w'] and held_keys['s']:
+        if self.bUp.is_pressed:
+            self.y += self.verticalSpeed * time.dt
+        if self.bDown.is_pressed:
+            self.y -= self.verticalSpeed * time.dt
+
+        if held_keys['w'] and held_keys['s'] or self.bUp.is_pressed and self.bDown.is_pressed:
             if self.horizontalSpeed != self.hiSpeed:
                 self.setSpeed(self.hiSpeed)
                 self.color = color.red
@@ -109,11 +117,9 @@ class Player(Entity):
             self.resetPlayer("end")
             self.flag = self.inRace
 
-        if Ending.enabled and self.x >= obstacleReset * 30:
-            Ending.enabled = False
+        if 149 < self.x < obstacleReset * 30:
             self.flag = self.complete
-            self.position = (0, 0)
-            pipes.position = (flappy.x + 30, random.randint(-15, 15))
+            g.state = g.menuS
 
         if not self.muted:
             a.volume = 2
@@ -138,7 +144,6 @@ class Pipes(Entity):
 
     def update(self):
         global obstacleCounter
-        print('pipes')
 
         self.always_on_top = True
 
@@ -155,12 +160,42 @@ class Finish(Entity):
         self.color = color.black
         self.scale = (3, 100)
         self.position = (flappy.x + 30, 0)
+
+    def update(self):
+        global obstacleCounter
+
+        if self.intersects(flappy).hit and g.spawnOnce == 0:
+            Ending = Text(text="Congratulations, you've made it to the end",
+                          scale=(2, 2),
+                          position=(-.4, 0))
+            obstacleCounter = 0
+            g.spawnOnce = 1
+
+            if Ending:
+                destroy(Ending, 2)
+                destroy(self, 3)
+
+
+class Menu(Entity):
+    def __init__(self):
+        super().__init__()
         self.enabled = False
 
     def update(self):
-        print('finish')
-        if self.intersects(flappy).hit:
-            Ending.enabled = True
+        b.enabled = True
+        flappy.enabled = False
+        pipes.enabled = False
+
+
+class SingleRace(Entity):
+    def __init__(self):
+        super().__init__()
+        self.enabled = False
+
+    def update(self):
+        b.enabled = False
+        flappy.enabled = True
+        pipes.enabled = True
 
 
 class GameManager(Entity):
@@ -171,6 +206,7 @@ class GameManager(Entity):
         self.singleRaceS = "single-race"
         self.menuS = "menuState"
         self.state = self.menuS
+        self.runOnce, self.spawnOnce, self.flappyOnce, self.pipesOnce = 0, 0, 0, 0
 
     def startSRace(self):
         self.state = self.singleRaceS
@@ -181,30 +217,25 @@ class GameManager(Entity):
             quit()
 
     def update(self):
-        print(self.state)
 
         if self.state == self.menuS:
-            b.enabled = True
+            menu.enabled = True
+            sRace.enabled = False
 
         if self.state == self.singleRaceS:
-            b.enabled = False
-            flappy.enabled = True
-            pipes.enabled = True
+            sRace.enabled = True
+            menu.enabled = False
 
 
 flappy = Player()
 pipes = Pipes()
-finish = Finish()
+sRace = SingleRace()
+menu = Menu()
 
 g = GameManager()
 
 Score = Text(position=(0, .4),
              scale=(2, 2))
-
-Ending = Text(text="Congratulations, you've made it to the end",
-              scale=(2, 2),
-              position=(-.4, 0),
-              enabled=False)
 
 Collision = Text(text=f"You Crashed, restarting",
                  scale=(3, 3),
@@ -223,11 +254,14 @@ b = Button(scale=1,
 
 # called every frame
 def update():
-    global obstacleCounter
+    global obstacleCounter, finishSpawned
 
-    if obstacleCounter == obstacleCap:
-        finish.enabled = True
-        finish.x = flappy.x + 30
+    finishSpawned = False
+
+    if obstacleCounter == obstacleCap and g.runOnce == 0:
+        print('spawning finish')
+        finish = Finish()
+        g.runOnce = 1
 
 
 app.run()
