@@ -1,6 +1,9 @@
 from ursina import *
-from gpiozero import Button
+# from gpiozero import Button
+from serial import Serial
 import datetime
+
+ser = Serial('/dev/ttyUSB0', 115200)
 
 app = Ursina()
 
@@ -46,8 +49,8 @@ class Player(Entity):
         self.inMenu = "menu"
         self.flag = self.inMenu
         self.timestamp = datetime.datetime.now()
-        self.bUp = Button(2) # gpio pin 3
-        self.bDown = Button(3) # gpio pin 5
+        #self.bUp = Button(2) # gpio pin 3
+        #self.bDown = Button(3) # gpio pin 5
 
     def setSpeed(self, value):
         self.horizontalSpeed = value
@@ -84,18 +87,25 @@ class Player(Entity):
     def update(self):
         camera.x = self.x
         background.x = self.x
+        
+        buf = ser.inWaiting()
+        print(buf)
+        if buf >= 2:
+            rt = ser.read(size=2)
+            if rt == b'Up':
+                self.y += self.verticalSpeed * time.dt
+        # rt_decoded = rt.decode("utf-8")
 
         Score.text = f"score: {int(self.x)}"
 
         self.y += held_keys['w'] * time.dt * self.verticalSpeed
         self.y -= held_keys['s'] * time.dt * self.verticalSpeed
 
-        if self.bUp.is_pressed:
-            self.y += self.verticalSpeed * time.dt
-        if self.bDown.is_pressed:
-            self.y -= self.verticalSpeed * time.dt
+        #if self.bUp.is_pressed or comm.rt_decoded == 'Up'
+        #if self.bDown.is_pressed:
+            #self.y -= self.verticalSpeed * time.dt
 
-        if held_keys['w'] and held_keys['s'] or self.bUp.is_pressed and self.bDown.is_pressed:
+        if held_keys['w'] and held_keys['s']: #or self.bUp.is_pressed and self.bDown.is_pressed:
             if self.horizontalSpeed != self.hiSpeed:
                 self.setSpeed(self.hiSpeed)
                 self.color = color.red
