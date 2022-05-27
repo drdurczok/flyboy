@@ -1,74 +1,66 @@
-bool message[8] = {0,0,0,0,0,0,0,0};
-// 2-bit ID, 3-bit speed, 1-bit dir up, 1-bit dir down, 1-bit menu
+bool message[6] = {0,0,0,0,0,0};
+// 2-bit ID, 4-bit button states
+#define Pin_Sens_RB 12
+#define Pin_Sens_RT 13
+#define Pin_Sens_LB 4
+#define Pin_Sens_LT 5
+
+bool Sens_RB_active = false;
+bool Sens_RT_active = false;
+bool Sens_LB_active = false;
+bool Sens_LT_active = false;
 
 void setup() { 
-  pinMode (LED_BUILTIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(Pin_Sens_RB, INPUT);
+  pinMode(Pin_Sens_RT, INPUT);
+  pinMode(Pin_Sens_LB, INPUT);
+  pinMode(Pin_Sens_LT, INPUT);
 
   Serial.begin(115200);
+  Serial.println("Begin");
 }
 
 void loop() {
-  set_speed(3); 011
-  send_message();
-  delay(1000);
+  check_sensor(Pin_Sens_RB, &Sens_RB_active);
+  check_sensor(Pin_Sens_RT, &Sens_RT_active);
+  check_sensor(Pin_Sens_LB, &Sens_LB_active);
+  check_sensor(Pin_Sens_LT, &Sens_LT_active);
 
-  set_speed(6); 110
+  delay(50);
+}
+
+void check_sensor(int pin, bool* state){
+  int value = analogRead(pin);
+  if (value > 500 && *state == false){
+    *state = true;
+    set_button(pin, true);
+  }
+  else if (value <= 500 && *state == true){
+    *state = false;
+    set_button(pin, false);
+  }
+}
+
+void set_button(int pin, bool state){
+  if (pin == Pin_Sens_RB){
+    message[2] = state;
+  }
+  else if (pin == Pin_Sens_RT){
+    message[3] = state;
+  }
+  else if (pin == Pin_Sens_LB){
+    message[4] = state;
+  }
+  else if (pin == Pin_Sens_LT){
+    message[5] = state;
+  }
   send_message();
-  delay(1000);
 }
 
 void send_message(){
-  for(int i = 0; i < 8; i++){
+  for(int i = 0; i < 6; i++){
     Serial.print(message[i]);
   }
   Serial.println();
-}
-
-void set_speed(int spd){
-  if (spd < 8){
-    message[2] = 0;
-    message[3] = 0;
-    message[4] = 0;
-    
-    int spd_reszta = 0;
-    int spd_dzielone = 0;
-
-    if (spd != 0){
-      spd_reszta = spd % 2;
-      spd_dzielone = spd / 2;
-      message[2] = spd_reszta;
-    }
-
-    if (spd_dzielone != 0){
-      spd_reszta = spd_dzielone % 2;
-      spd_dzielone = spd_dzielone / 2;
-      message[3] = spd_reszta;
-    }
-
-    if (spd_dzielone != 0){
-      spd_reszta = spd_dzielone % 2;
-      spd_dzielone = spd_dzielone / 2;
-      message[4] = spd_reszta;
-    }
-  
-    send_message();
-  }
-  else{
-    //Spd too big!!!
-  }
-}
-
-void set_dir_up(bool engage){
-    message[5] = engage;
-    send_message();
-}
-
-void set_dir_down(bool engage){
-    message[6] = engage;
-    send_message();
-}
-
-void set_menu(bool engage){
-    message[7] = engage;
-    send_message();
 }
