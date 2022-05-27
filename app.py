@@ -34,12 +34,12 @@ class Player(Entity):
         self.texture = self.normalTxt
         self.collider = "box"
         self.color = color.white
-        self.scale = (2.12, 1.5)
-        self.position = (1, 1)
-        self.horizontalSpeed = 6
-        self.verticalSpeed = 10
         self.loSpeed = 6
         self.hiSpeed = 12
+        self.scale = (2.12, 1.5)
+        self.position = (1, 1)
+        self.horizontalSpeed = self.loSpeed
+        self.verticalSpeed = 10
         self.loVol = 0
         self.hiVol = 2
         self.muted = False
@@ -48,7 +48,16 @@ class Player(Entity):
         self.complete = "finished"
         self.inMenu = "menu"
         self.flag = self.inMenu
-        self.timestamp = datetime.datetime.now()
+        self.currTime = datetime.datetime.now()
+        self.prevTime = self.currTime
+        self.delay = 160000
+        self.ID = '0'
+        self.UP = '0'
+        self.DOWN = '0'
+        self.rTrigger = '0'
+        self.lTrigger = '0'
+        self.loRate = 160000
+        self.hiRate = 200
         #self.bUp = Button(2) # gpio pin 3
         #self.bDown = Button(3) # gpio pin 5
 
@@ -89,21 +98,39 @@ class Player(Entity):
         background.x = self.x
         
         buf = ser.inWaiting()
-        print(buf)
-        if buf >= 2:
-            rt = ser.read(size=2)
-            if rt == b'Up':
+        if buf >= 8:
+            rt = ser.read(size=8)
+            rt_decoded = rt.decode("utf-8")
+            
+            self.ID = rt_decoded[0:1]
+            self.UP = rt_decoded[5]
+            self.DOWN = rt_decoded[3]
+            self.rTrigger = rt_decoded[2]
+            self.lTrigger = rt_decoded[4]
+            
+        self.currTime = datetime.datetime.now()
+        
+        if (self.currTime - self.prevTime).microseconds >= self.delay:
+            if self.UP == '1':
                 self.y += self.verticalSpeed * time.dt
-        # rt_decoded = rt.decode("utf-8")
-
+            if self.DOWN == '1':
+                self.y -= self.verticalSpeed * time.dt
+            if self.lTrigger == '1':
+                self.delay = self.hiRate
+            if self.lTrigger != '1':
+                self.delay = self.loRate
+            if self.rTrigger == '1':
+                self.horizontalSpeed = self.hiSpeed
+                self.color = color.red
+            if self.rTrigger != '1':
+                self.horizontalSpeed = self.loSpeed
+                self.color = color.white
+            self.prevTime = self.currTime
+                
         Score.text = f"score: {int(self.x)}"
 
         self.y += held_keys['w'] * time.dt * self.verticalSpeed
         self.y -= held_keys['s'] * time.dt * self.verticalSpeed
-
-        #if self.bUp.is_pressed or comm.rt_decoded == 'Up'
-        #if self.bDown.is_pressed:
-            #self.y -= self.verticalSpeed * time.dt
 
         if held_keys['w'] and held_keys['s']: #or self.bUp.is_pressed and self.bDown.is_pressed:
             if self.horizontalSpeed != self.hiSpeed:
