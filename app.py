@@ -1,23 +1,17 @@
 from ursina import *
-# from gpiozero import Button
 from serial import Serial
 import datetime
 
-ser = Serial('/dev/ttyUSB0', 115200)
+# ser = Serial('/dev/ttyUSB0', 115200)
 
 app = Ursina()
-
-states = ['mainMenu', 'gamemodeSelection', 'playerSelection', 'race', 'infinite']
-currentState = states[4]
 
 a = Audio('data/sfx/Flappy Bird Theme Song.mp3', loop=True, autoplay=True)
 obstacleCounter = 0
 obstacleCap = 2
-obstacleReset = obstacleCap + 3
 
 finishSpawned = False
 
-textDelDelay = 6
 camera.orthographic = True
 # window.fullscreen = True
 window.cog_button.enabled = False
@@ -58,8 +52,6 @@ class Player(Entity):
         self.lTrigger = '0'
         self.loRate = 160000
         self.hiRate = 200
-        #self.bUp = Button(2) # gpio pin 3
-        #self.bDown = Button(3) # gpio pin 5
 
     def setSpeed(self, value):
         self.horizontalSpeed = value
@@ -97,42 +89,42 @@ class Player(Entity):
         camera.x = self.x
         background.x = self.x
         
-        buf = ser.inWaiting()
-        if buf >= 8:
-            rt = ser.read(size=8)
-            rt_decoded = rt.decode("utf-8")
-            
-            self.ID = rt_decoded[0:1]
-            self.UP = rt_decoded[5]
-            self.DOWN = rt_decoded[3]
-            self.rTrigger = rt_decoded[2]
-            self.lTrigger = rt_decoded[4]
-            
-        self.currTime = datetime.datetime.now()
-        
-        if (self.currTime - self.prevTime).microseconds >= self.delay:
-            if self.UP == '1':
-                self.y += self.verticalSpeed * time.dt
-            if self.DOWN == '1':
-                self.y -= self.verticalSpeed * time.dt
-            if self.lTrigger == '1':
-                self.delay = self.hiRate
-            if self.lTrigger != '1':
-                self.delay = self.loRate
-            if self.rTrigger == '1':
-                self.horizontalSpeed = self.hiSpeed
-                self.color = color.red
-            if self.rTrigger != '1':
-                self.horizontalSpeed = self.loSpeed
-                self.color = color.white
-            self.prevTime = self.currTime
+        # buf = ser.inWaiting()
+        # if buf >= 8:
+        #     rt = ser.read(size=8)
+        #     rt_decoded = rt.decode("utf-8")
+        #
+        #     self.ID = rt_decoded[0:1]
+        #     self.UP = rt_decoded[5]
+        #     self.DOWN = rt_decoded[3]
+        #     self.rTrigger = rt_decoded[2]
+        #     self.lTrigger = rt_decoded[4]
+        #
+        # self.currTime = datetime.datetime.now()
+        #
+        # if (self.currTime - self.prevTime).microseconds >= self.delay:
+        #     if self.UP == '1':
+        #         self.y += self.verticalSpeed * time.dt
+        #     if self.DOWN == '1':
+        #         self.y -= self.verticalSpeed * time.dt
+        #     if self.lTrigger == '1':
+        #         self.delay = self.hiRate
+        #     if self.lTrigger != '1':
+        #         self.delay = self.loRate
+        #     if self.rTrigger == '1':
+        #         self.horizontalSpeed = self.hiSpeed
+        #         self.color = color.red
+        #     if self.rTrigger != '1':
+        #         self.horizontalSpeed = self.loSpeed
+        #         self.color = color.white
+        #     self.prevTime = self.currTime
                 
         Score.text = f"score: {int(self.x)}"
 
         self.y += held_keys['w'] * time.dt * self.verticalSpeed
         self.y -= held_keys['s'] * time.dt * self.verticalSpeed
 
-        if held_keys['w'] and held_keys['s']: #or self.bUp.is_pressed and self.bDown.is_pressed:
+        if held_keys['w'] and held_keys['s']:
             if self.horizontalSpeed != self.hiSpeed:
                 self.setSpeed(self.hiSpeed)
                 self.color = color.red
@@ -154,7 +146,7 @@ class Player(Entity):
             self.resetPlayer("end")
             self.flag = self.inRace
 
-        if 149 < self.x < obstacleReset * 30:
+        if obstacleCounter == 4:
             self.flag = self.complete
             g.state = g.menuS
 
@@ -171,6 +163,7 @@ class Pipes(Entity):
         super().__init__()
         self.position = (flappy.x + 30, random.randint(-15, 15))
         self.enabled = False
+        self.always_on_top = True
         self.obstacleDown = Entity(model='quad', color=color.green, scale=(8, 40), y=-25, collider='box',
                                    texture='data/gfx/pipe-green', parent=self)
         self.obstacleUp = Entity(model='quad', color=color.green, scale=(8, 40), y=25, collider='box',
@@ -182,11 +175,10 @@ class Pipes(Entity):
     def update(self):
         global obstacleCounter
 
-        self.always_on_top = True
-
         if flappy.x >= self.x:
-            self.position = (flappy.x + 30, random.randint(-15, 15))
             obstacleCounter += 1
+            print(obstacleCounter)
+            self.position = (flappy.x + 30, random.randint(-15, 15))
 
 
 class Finish(Entity):
@@ -197,6 +189,7 @@ class Finish(Entity):
         self.color = color.black
         self.scale = (3, 100)
         self.position = (flappy.x + 30, 0)
+        self.enabled = True
 
     def update(self):
         global obstacleCounter
@@ -205,12 +198,14 @@ class Finish(Entity):
             Ending = Text(text="Congratulations, you've made it to the end",
                           scale=(2, 2),
                           position=(-.4, 0))
-            obstacleCounter = 0
+            self.enabled = False
             g.spawnOnce = 1
 
             if Ending:
                 destroy(Ending, 2)
-                destroy(self, 3)
+
+        if obstacleCounter != 2:
+            self.position = (flappy.x + 30, 0)
 
 
 class Menu(Entity):
@@ -222,6 +217,11 @@ class Menu(Entity):
         b.enabled = True
         flappy.enabled = False
         pipes.enabled = False
+        finish.enabled = False
+        title.enabled = True
+        title.always_on_top = True
+        title.position = (0, 15)
+        Score.enabled = False
 
 
 class SingleRace(Entity):
@@ -233,6 +233,9 @@ class SingleRace(Entity):
         b.enabled = False
         flappy.enabled = True
         pipes.enabled = True
+        finish.enabled = True
+        title.enabled = False
+        Score.enabled = True
 
 
 class GameManager(Entity):
@@ -246,7 +249,15 @@ class GameManager(Entity):
         self.runOnce, self.spawnOnce, self.flappyOnce, self.pipesOnce = 0, 0, 0, 0
 
     def startSRace(self):
+        global obstacleCounter
+
         self.state = self.singleRaceS
+        flappy.position = (0, 0)
+        pipes.position = (flappy.x + 30, random.randint(-15, 15))
+        obstacleCounter = 0
+        finish.enabled = True
+        self.spawnOnce = 0
+        Score.enabled = True
         flappy.flag = flappy.inRace
 
     def input(self, key):
@@ -258,6 +269,8 @@ class GameManager(Entity):
         if self.state == self.menuS:
             menu.enabled = True
             sRace.enabled = False
+            title.enabled = True
+            title.always_on_top = True
 
         if self.state == self.singleRaceS:
             sRace.enabled = True
@@ -268,11 +281,13 @@ flappy = Player()
 pipes = Pipes()
 sRace = SingleRace()
 menu = Menu()
+finish = Finish()
 
 g = GameManager()
 
 Score = Text(position=(0, .4),
-             scale=(2, 2))
+             scale=(2, 2),
+             enabled=False)
 
 Collision = Text(text=f"You Crashed, restarting",
                  scale=(3, 3),
@@ -283,10 +298,17 @@ background = Entity(model="quad",
                     texture="data/gfx/FlappyBirdBG",
                     scale=(100, 50))
 
-b = Button(scale=1,
+b = Button(scale=(.4, .1),
+           position=(0, 0),
            color=color.blue,
            enabled=False,
            on_click=g.startSRace)
+
+title = Entity(model='quad',
+               scale=(30, 8),
+               position=(0, 10),
+               texture=r"data/gfx/title.png",
+               enabled=True)
 
 
 # called every frame
@@ -294,11 +316,6 @@ def update():
     global obstacleCounter, finishSpawned
 
     finishSpawned = False
-
-    if obstacleCounter == obstacleCap and g.runOnce == 0:
-        print('spawning finish')
-        finish = Finish()
-        g.runOnce = 1
 
 
 app.run()
