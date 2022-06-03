@@ -2,7 +2,7 @@ from ursina import *
 from serial import Serial
 import datetime
 
-# ser = Serial('/dev/ttyUSB0', 115200)
+ser = Serial('/dev/ttyUSB0', 115200)
 
 app = Ursina()
 
@@ -89,35 +89,35 @@ class Player(Entity):
         camera.x = self.x
         background.x = self.x
         
-        # buf = ser.inWaiting()
-        # if buf >= 8:
-        #     rt = ser.read(size=8)
-        #     rt_decoded = rt.decode("utf-8")
-        #
-        #     self.ID = rt_decoded[0:1]
-        #     self.UP = rt_decoded[5]
-        #     self.DOWN = rt_decoded[3]
-        #     self.rTrigger = rt_decoded[2]
-        #     self.lTrigger = rt_decoded[4]
-        #
-        # self.currTime = datetime.datetime.now()
-        #
-        # if (self.currTime - self.prevTime).microseconds >= self.delay:
-        #     if self.UP == '1':
-        #         self.y += self.verticalSpeed * time.dt
-        #     if self.DOWN == '1':
-        #         self.y -= self.verticalSpeed * time.dt
-        #     if self.lTrigger == '1':
-        #         self.delay = self.hiRate
-        #     if self.lTrigger != '1':
-        #         self.delay = self.loRate
-        #     if self.rTrigger == '1':
-        #         self.horizontalSpeed = self.hiSpeed
-        #         self.color = color.red
-        #     if self.rTrigger != '1':
-        #         self.horizontalSpeed = self.loSpeed
-        #         self.color = color.white
-        #     self.prevTime = self.currTime
+        buf = ser.inWaiting()
+        if buf >= 8:
+            rt = ser.read(size=8)
+            rt_decoded = rt.decode("utf-8")
+        
+            self.ID = rt_decoded[0:1]
+            self.UP = rt_decoded[5]
+            self.DOWN = rt_decoded[3]
+            self.rTrigger = rt_decoded[2]
+            self.lTrigger = rt_decoded[4]
+        
+        self.currTime = datetime.datetime.now()
+        
+        if (self.currTime - self.prevTime).microseconds >= self.delay:
+            if self.UP == '1':
+                self.y += self.verticalSpeed * time.dt
+            if self.DOWN == '1':
+                self.y -= self.verticalSpeed * time.dt
+            if self.lTrigger == '1':
+                self.delay = self.hiRate
+            if self.lTrigger != '1':
+                self.delay = self.loRate
+            if self.rTrigger == '1':
+                self.horizontalSpeed = self.hiSpeed
+                self.color = color.red
+            if self.rTrigger != '1':
+                self.horizontalSpeed = self.loSpeed
+                self.color = color.white
+            self.prevTime = self.currTime
                 
         Score.text = f"score: {int(self.x)}"
 
@@ -212,16 +212,25 @@ class Menu(Entity):
     def __init__(self):
         super().__init__()
         self.enabled = False
+        self.title = Entity()
+        self.titleOnce = 0
 
     def update(self):
         b.enabled = True
         flappy.enabled = False
         pipes.enabled = False
         finish.enabled = False
-        title.enabled = True
-        title.always_on_top = True
-        title.position = (0, 15)
+        self.title.enabled = True
+        self.title.always_on_top = True
+        self.title.position = (0, 15)
         Score.enabled = False
+        self.title.enabled = True
+
+        if self.title.enabled == True and self.titleOnce == 0:
+            self.title = Entity(model='quad', scale=(30, 8), position=(0, 10), texture=r"data/gfx/title.png", always_on_top=True, enabled=True)
+            self.titleOnce = 1
+        elif self.title.enabled == False and self.titleOnce == 1:
+            self.titleOnce = 0
 
 
 class SingleRace(Entity):
@@ -234,8 +243,9 @@ class SingleRace(Entity):
         flappy.enabled = True
         pipes.enabled = True
         finish.enabled = True
-        title.enabled = False
+        menu.title.enabled = False
         Score.enabled = True
+        menu.title.enabled = False
 
 
 class GameManager(Entity):
@@ -269,8 +279,6 @@ class GameManager(Entity):
         if self.state == self.menuS:
             menu.enabled = True
             sRace.enabled = False
-            title.enabled = True
-            title.always_on_top = True
 
         if self.state == self.singleRaceS:
             sRace.enabled = True
@@ -303,12 +311,6 @@ b = Button(scale=(.4, .1),
            color=color.blue,
            enabled=False,
            on_click=g.startSRace)
-
-title = Entity(model='quad',
-               scale=(30, 8),
-               position=(0, 10),
-               texture=r"data/gfx/title.png",
-               enabled=True)
 
 
 # called every frame
