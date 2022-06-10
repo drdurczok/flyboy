@@ -1,22 +1,26 @@
 from ursina import *
 from serial import Serial
-import datetime
+import datetime, pyautogui
 
-# ser = Serial('/dev/ttyUSB0', 115200)
+ser = Serial('/dev/ttyUSB0', 115200)
 
 app = Ursina()
 
-a = Audio('data/sfx/Flappy Bird Theme Song.mp3', loop=True, autoplay=True)
+audio = Audio('data/sfx/Flappy Bird Theme Song.mp3', loop=True, autoplay=True)
 obstacleCounter = 0
-obstacleCap = 2
+obstacleCap = 332
 
 finishSpawned = False
 
 camera.orthographic = True
-# window.fullscreen = True
+window.fullscreen = True
 window.cog_button.enabled = False
-window.exit_button.enabled = False
 window.fps_counter.enabled = False
+
+window.exit_button.position = (.2, -.2)
+window.exit_button.scale = (.4, .1)
+window.exit_button.color = color.red
+window.exit_button.enabled = False
 
 
 class Player(Entity):
@@ -44,14 +48,13 @@ class Player(Entity):
         self.flag = self.inMenu
         self.currTime = datetime.datetime.now()
         self.prevTime = self.currTime
-        self.delay = 160000
+        self.rate = 160000
         self.ID = '0'
         self.UP = '0'
         self.DOWN = '0'
         self.rTrigger = '0'
         self.lTrigger = '0'
-        self.loRate = 160000
-        self.hiRate = 200
+        self.inAnimation = False
 
     def setSpeed(self, value):
         self.horizontalSpeed = value
@@ -86,43 +89,46 @@ class Player(Entity):
                 self.mute(self.loVol)
 
     def update(self):
-        camera.x = self.x
-        background.x = self.x
-        
-        # buf = ser.inWaiting()
-        # if buf >= 8:
-        #     rt = ser.read(size=8)
-        #     rt_decoded = rt.decode("utf-8")
-        #
-        #     self.ID = rt_decoded[0:1]
-        #     self.UP = rt_decoded[5]
-        #     self.DOWN = rt_decoded[3]
-        #     self.rTrigger = rt_decoded[2]
-        #     self.lTrigger = rt_decoded[4]
-        #
-        # self.currTime = datetime.datetime.now()
-        #
-        # if (self.currTime - self.prevTime).microseconds >= self.delay:
-        #     if self.UP == '1':
-        #         self.y += self.verticalSpeed * time.dt
-        #     if self.DOWN == '1':
-        #         self.y -= self.verticalSpeed * time.dt
-        #     if self.lTrigger == '1':
-        #         self.delay = self.hiRate
-        #     if self.lTrigger != '1':
-        #         self.delay = self.loRate
-        #     if self.rTrigger == '1':
-        #         self.horizontalSpeed = self.hiSpeed
-        #         self.color = color.red
-        #     if self.rTrigger != '1':
-        #         self.horizontalSpeed = self.loSpeed
-        #         self.color = color.white
-        #     self.prevTime = self.currTime
-                
+        background.x = camera.x
+
+        buf = ser.inWaiting()
+        if buf >= 8:
+            rt = ser.read(size=8)
+            rt_decoded = rt.decode("utf-8")
+
+            self.ID = rt_decoded[0:1]
+            self.UP = rt_decoded[5]
+            self.DOWN = rt_decoded[3]
+            self.rTrigger = rt_decoded[2]
+            self.lTrigger = rt_decoded[4]
+
+        self.currTime = datetime.datetime.now()
+
+        if (self.currTime - self.prevTime).microseconds >= self.delay:
+            if self.UP == '1':
+                self.y += self.verticalSpeed * time.dt
+            if self.DOWN == '1':
+                self.y -= self.verticalSpeed * time.dt
+            if self.lTrigger == '1':
+                self.horizontalSpeed = self.hiSpeed
+                self.color = color.red
+            if self.lTrigger == '0':
+                self.horizontalSpeed = self.loSpeed
+                self.color = color.white
+            if self.rTrigger == '0':
+                pass
+            if self.rTrigger == '1':
+                menu.enabled = True
+            self.prevTime = self.currTime
+
         Score.text = f"score: {int(self.x)}"
 
-        self.y += held_keys['w'] * time.dt * self.verticalSpeed
-        self.y -= held_keys['s'] * time.dt * self.verticalSpeed
+        if not self.inAnimation:
+            self.y += held_keys['w'] * time.dt * self.verticalSpeed
+            self.y -= held_keys['s'] * time.dt * self.verticalSpeed
+
+            self.x += time.dt * self.horizontalSpeed
+            camera.x = self.x
 
         if held_keys['w'] and held_keys['s']:
             if self.horizontalSpeed != self.hiSpeed:
@@ -146,16 +152,14 @@ class Player(Entity):
             self.resetPlayer("end")
             self.flag = self.inRace
 
-        if obstacleCounter == 4:
+        if obstacleCounter == 334:
             self.flag = self.complete
             g.state = g.menuS
 
         if not self.muted:
-            a.volume = 2
+            audio.volume = 2
         if self.muted:
-            a.volume = 0
-
-        self.x += time.dt * self.horizontalSpeed
+            audio.volume = 0
 
 
 class Pipes(Entity):
@@ -204,7 +208,7 @@ class Finish(Entity):
             if Ending:
                 destroy(Ending, 2)
 
-        if obstacleCounter != 2:
+        if obstacleCounter != 332:
             self.position = (flappy.x + 30, 0)
 
 
@@ -212,16 +216,71 @@ class Menu(Entity):
     def __init__(self):
         super().__init__()
         self.enabled = False
+        self.spawnOnce = 0
+        self.bChoose = 0
+        self.currTime = datetime.datetime.now()
+        self.prevTime = self.currTime
+        self.rate = 160000
+        self.ID = '0'
+        self.UP = '0'
+        self.DOWN = '0'
+        self.rTrigger = '0'
+        self.lTrigger = '0'
+
+    def input(self, key):
+        if key == 'y':
+            self.bChoose -= 1
+        if key == 'h':
+            self.bChoose += 1
 
     def update(self):
-        b.enabled = True
+        camera.position = (0, 0)
+        background.x, background.y = camera.x, camera.y
+        bPlay.enabled = True
+        window.exit_button.enabled = True
         flappy.enabled = False
         pipes.enabled = False
         finish.enabled = False
-        title.enabled = True
-        title.always_on_top = True
-        title.position = (0, 15)
         Score.enabled = False
+
+        if self.enabled and self.spawnOnce == 0:
+            Title = Entity(model='quad', scale=(30, 8), position=(0, 10), texture=r"data/gfx/title.png", enabled=True)
+            self.spawnOnce = 1
+
+        buf = ser.inWaiting()
+        if buf >= 8:
+            rt = ser.read(size=8)
+            rt_decoded = rt.decode("utf-8")
+
+            self.ID = rt_decoded[0:1]
+            self.UP = rt_decoded[5]
+            self.DOWN = rt_decoded[3]
+            self.rTrigger = rt_decoded[2]
+            self.lTrigger = rt_decoded[4]
+
+            self.currTime = datetime.datetime.now()
+
+            if (self.currTime - self.prevTime).microseconds >= self.delay:
+                if self.UP == '1':
+                    self.bChoose -= '1'
+                if self.DOWN == '1':
+                    self.bChoose += '1'
+                if self.rTrigger == '1':
+                    pyautogui.click()
+
+                self.prevTime = self.currTime
+
+        if self.bChoose == 0:
+            mouse.x, mouse.y = .005, bPlay.position.y
+        if self.bChoose == 1:
+            mouse.x, mouse.y = .005, -.25
+
+        print(self.bChoose)
+
+        if self.bChoose <= 0:
+            self.bChoose = 0
+        if self.bChoose >= 1:
+            self.bChoose = 1
 
 
 class SingleRace(Entity):
@@ -230,12 +289,18 @@ class SingleRace(Entity):
         self.enabled = False
 
     def update(self):
-        b.enabled = False
+        bPlay.enabled = False
+        window.exit_button.enabled = False
         flappy.enabled = True
         pipes.enabled = True
         finish.enabled = True
-        title.enabled = False
         Score.enabled = True
+        menu.spawnOnce = 0
+
+
+def JustQuit():
+    quit()
+    return
 
 
 class GameManager(Entity):
@@ -260,6 +325,12 @@ class GameManager(Entity):
         Score.enabled = True
         flappy.flag = flappy.inRace
 
+    def Quit(self):
+        i = 0
+        i += 1
+        quit()
+        return i
+
     def input(self, key):
         if key == '1':
             quit()
@@ -269,8 +340,6 @@ class GameManager(Entity):
         if self.state == self.menuS:
             menu.enabled = True
             sRace.enabled = False
-            title.enabled = True
-            title.always_on_top = True
 
         if self.state == self.singleRaceS:
             sRace.enabled = True
@@ -296,22 +365,16 @@ Collision = Text(text=f"You Crashed, restarting",
 
 background = Entity(model="quad",
                     texture="data/gfx/FlappyBirdBG",
-                    scale=(100, 50))
+                    scale=(100, 50),
+                    position=Vec2(0, 0))
 
-b = Button(scale=(.4, .1),
-           position=(0, 0),
-           color=color.blue,
-           enabled=False,
-           on_click=g.startSRace)
-
-title = Entity(model='quad',
-               scale=(30, 8),
-               position=(0, 10),
-               texture=r"data/gfx/title.png",
-               enabled=True)
+bPlay = Button(scale=(.4, .1),
+               position=(0, -.1),
+               color=color.blue,
+               enabled=False,
+               on_click=g.startSRace)
 
 
-# called every frame
 def update():
     global obstacleCounter, finishSpawned
 
