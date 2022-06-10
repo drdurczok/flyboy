@@ -13,13 +13,14 @@ obstacleCap = 332
 finishSpawned = False
 
 camera.orthographic = True
-window.fullscreen = True
+# window.fullscreen = True
 window.cog_button.enabled = False
 window.fps_counter.enabled = False
 
 window.exit_button.position = (.2, -.2)
 window.exit_button.scale = (.4, .1)
 window.exit_button.color = color.red
+window.exit_button.always_on_top = True
 window.exit_button.enabled = False
 
 
@@ -48,7 +49,7 @@ class Player(Entity):
         self.flag = self.inMenu
         self.currTime = datetime.datetime.now()
         self.prevTime = self.currTime
-        self.rate = 160000
+        self.rate = 40000
         self.ID = '0'
         self.UP = '0'
         self.DOWN = '0'
@@ -104,7 +105,7 @@ class Player(Entity):
 
         self.currTime = datetime.datetime.now()
 
-        if (self.currTime - self.prevTime).microseconds >= self.delay:
+        if (self.currTime - self.prevTime).microseconds >= self.rate:
             if self.UP == '1':
                 self.y += self.verticalSpeed * time.dt
             if self.DOWN == '1':
@@ -260,11 +261,11 @@ class Menu(Entity):
 
             self.currTime = datetime.datetime.now()
 
-            if (self.currTime - self.prevTime).microseconds >= self.delay:
+            if (self.currTime - self.prevTime).microseconds >= self.rate:
                 if self.UP == '1':
-                    self.bChoose -= '1'
+                    self.bChoose -= 1
                 if self.DOWN == '1':
-                    self.bChoose += '1'
+                    self.bChoose += 1
                 if self.rTrigger == '1':
                     pyautogui.click()
 
@@ -372,7 +373,8 @@ bPlay = Button(scale=(.4, .1),
                position=(0, -.1),
                color=color.blue,
                enabled=False,
-               on_click=g.startSRace)
+               on_click=g.startSRace,
+               always_on_top=True)
 
 
 def update():
